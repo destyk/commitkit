@@ -1,0 +1,127 @@
+# =============================================================================
+# commitkit configuration (.commitkit.yml)
+# =============================================================================
+#
+# Place this file in the repository root (or any parent of the working
+# directory). `commitkit check` walks upward from the current working
+# directory until it finds this file.
+#
+# All fields are optional. Omitted values fall back to the built-in
+# Conventional Commits defaults.
+#
+# Explicit path:
+#   commitkit check --config path/to/.commitkit.yml
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# types
+# -----------------------------------------------------------------------------
+# Allowed values for the commit header type (the part before ':' / '(').
+#
+# Example headers:
+#   feat: add login
+#   fix(api): handle timeout
+#
+# If omitted or empty, the default Conventional Commits set is used
+# (feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert).
+#
+# Unknown types produce a type-enum error.
+types:
+  - feat # new user-facing capability
+  - fix # bug fix
+  - docs # documentation only
+  - style # formatting, no logic change
+  - refactor # code change that neither fixes a bug nor adds a feature
+  - perf # performance improvement
+  - test # adding or updating tests
+  - build # build system or external dependencies
+  - ci # CI configuration
+  - chore # maintenance tasks
+  - revert # revert a previous commit
+
+# -----------------------------------------------------------------------------
+# description
+# -----------------------------------------------------------------------------
+# Rules for the free-form description after "type(scope): ".
+description:
+  # Minimum length of the description in Unicode runes (not bytes).
+  # Default: 1
+  min: 1
+
+  # Maximum length of the description in Unicode runes.
+  # Set to 0 to disable the upper bound.
+  # Default: 72
+  max: 72
+
+  # If true, the first letter of the description must be lowercase
+  # (ASCII A–Z is rejected).
+  #
+  #   ok:   feat: add pagination
+  #   bad:  feat: Add pagination
+  #
+  # Default: true
+  lowercase: true
+
+# -----------------------------------------------------------------------------
+# scope
+# -----------------------------------------------------------------------------
+# Rules for the optional scope in parentheses: type(scope): description
+scope:
+  # If true, every commit must include a non-empty scope.
+  #
+  #   ok:   feat(api): add pagination
+  #   bad:  feat: add pagination
+  #
+  # Default: false
+  required: false
+
+  # If set, the scope must be one of the listed values.
+  # Commits without a scope are still allowed unless required: true.
+  #
+  #   ok:   feat(api): …
+  #   bad:  feat(db): …   (if db is not in the list)
+  #
+  # Default: unset (any scope is allowed)
+  # enum:
+  #   - api
+  #   - ui
+  #   - db
+
+# -----------------------------------------------------------------------------
+# header
+# -----------------------------------------------------------------------------
+# Rules for the entire first line of the commit message.
+header:
+  # Maximum length of the full header line (type + scope + ! + description).
+  # If omitted or 0, the limit is disabled.
+  #
+  # Default: disabled
+  # max_length: 100
+
+# -----------------------------------------------------------------------------
+# rules
+# -----------------------------------------------------------------------------
+# Toggles for individual policy rules.
+rules:
+  # If true, the description must not end with a period.
+  #
+  #   ok:   feat: add pagination
+  #   bad:  feat: add pagination.
+  #
+  # Default: false
+  no_trailing_period: false
+
+  # If true, a header marked with '!' (breaking change) must also have a
+  # footer "BREAKING CHANGE:" or "BREAKING-CHANGE:".
+  #
+  #   ok:
+  #     feat(api)!: remove endpoint
+  #
+  #     BREAKING CHANGE: endpoint was removed.
+  #
+  #   bad:
+  #     feat(api)!: remove endpoint
+  #     (no BREAKING CHANGE footer)
+  #
+  # Default: true
+  breaking_change_footer: true
