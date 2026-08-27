@@ -2,7 +2,19 @@
 
 Парсер и линтер commit-сообщений на чистом Go.
 
-**Conventional Commits — это политика, а не часть парсера.**
+commitkit разбирает сырое commit-сообщение в структурированную модель
+(type, scope, breaking-маркер, description, body, Git trailers) и проверяет
+его небольшим rule engine. **Conventional Commits реализован как политика**,
+а не зашит в парсер, поэтому тот же разбор остаётся полезным, если у проекта
+другая договорённость.
+
+- Без тяжёлого фреймворка: доменное ядро в `internal/`, тонкие публичные
+  адаптеры (`commit`, `lint`, `policy`)
+- Позиции в исходнике у каждой части сообщения для точных диагностик
+- Корректная работа с Git trailers (continuation, multiline,
+  `BREAKING CHANGE` / `BREAKING-CHANGE`)
+- Конфиг проекта через `.commitkit.yml`
+- CLI для хуков и CI, плюс `install-hook` / `uninstall-hook`
 
 [English version](README.md)
 
@@ -31,7 +43,60 @@
 - Установщик git-хука `commit-msg`
 - Удобно для хуков и CI
 
-## Конфигурация
+## Установка
+
+### CLI (глобально)
+
+```bash
+go install github.com/destyk/commitkit@latest
+```
+
+Убедитесь, что `$(go env GOPATH)/bin` есть в `PATH`.
+
+Из локального клона:
+
+```bash
+git clone https://github.com/destyk/commitkit.git
+cd commitkit
+make setup
+```
+
+### Готовые бинарники
+
+Скачайте бинарник под свою ОС/архитектуру со страницы релизов:
+
+**https://github.com/destyk/commitkit/releases**
+
+Распакуйте, положите `commitkit` в `PATH` и проверьте:
+
+```bash
+commitkit version
+```
+
+### Библиотека
+
+В своём модуле:
+
+```bash
+go get github.com/destyk/commitkit@latest
+```
+
+Импортируйте только публичные доменные пакеты:
+
+```go
+import (
+    "github.com/destyk/commitkit/commit"
+    "github.com/destyk/commitkit/lint"
+    "github.com/destyk/commitkit/policy"
+)
+```
+
+Не импортируйте `internal/...` — эти пакеты не входят в публичный API
+и недоступны для импорта извне этого модуля.
+
+## CLI
+
+### Конфигурация
 
 `.commitkit.yml` (поиск вверх от текущего каталога):
 
@@ -62,19 +127,8 @@ rules:
 Если файла нет — встроенные значения Conventional Commits.
 
 ```bash
-commitkit check --config path/to/.commitkit.yml
-```
-
-## CLI
-
-```bash
-go install github.com/destyk/commitkit@latest
-
-# или сборка и установка
-make setup
-
 git log -1 --format=%B | commitkit check
-commitkit check --file .git/COMMIT_EDITMSG
+commitkit check --file .git/COMMIT_EDITMSG --config path/to/.commitkit.yml
 commitkit parse
 commitkit install-hook
 commitkit uninstall-hook

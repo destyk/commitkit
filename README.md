@@ -1,8 +1,20 @@
 # commitkit
 
-Go-native commit message parser and linter.
+Commit message parser and linter written in pure Go.
 
-**Conventional Commits is a policy, not part of the parser.**
+commitkit turns a raw commit message into a structured model (type, scope,
+breaking marker, description, body, Git trailers) and validates it with a
+small rule engine. **Conventional Commits is implemented as a policy**, not
+hard-coded into the parser — so the same parser stays useful when a project
+uses a different convention.
+
+- Zero heavy framework surface: domain core under `internal/`, thin public
+  adapters (`commit`, `lint`, `policy`)
+- Source positions on every part of the message for precise diagnostics
+- Proper Git trailer handling (continuation lines, multiline values,
+  `BREAKING CHANGE` / `BREAKING-CHANGE`)
+- Project config via `.commitkit.yml`
+- CLI for hooks and CI, plus `install-hook` / `uninstall-hook`
 
 [Русская версия](README.ru.md)
 
@@ -31,7 +43,60 @@ Dependency direction is inward — core does not depend on adapters.
 - Git `commit-msg` hook installer
 - Suitable for hooks and CI
 
-## Configuration
+## Installation
+
+### CLI (global)
+
+```bash
+go install github.com/destyk/commitkit@latest
+```
+
+Make sure `$(go env GOPATH)/bin` is on your `PATH`.
+
+From a local clone:
+
+```bash
+git clone https://github.com/destyk/commitkit.git
+cd commitkit
+make setup
+```
+
+### Prebuilt binaries
+
+Download a release binary for your OS/arch from:
+
+**https://github.com/destyk/commitkit/releases**
+
+Unpack it, place `commitkit` on your `PATH`, and verify:
+
+```bash
+commitkit version
+```
+
+### Library
+
+In your module:
+
+```bash
+go get github.com/destyk/commitkit@latest
+```
+
+Import only the public domain packages:
+
+```go
+import (
+    "github.com/destyk/commitkit/commit"
+    "github.com/destyk/commitkit/lint"
+    "github.com/destyk/commitkit/policy"
+)
+```
+
+Do not import `internal/...` — those packages are not part of the public API
+and cannot be imported from outside this module.
+
+## CLI usage
+
+### Configuration
 
 `.commitkit.yml` (searched upward from cwd):
 
@@ -62,19 +127,8 @@ rules:
 No file -> built-in Conventional Commits defaults.
 
 ```bash
-commitkit check --config path/to/.commitkit.yml
-```
-
-## CLI
-
-```bash
-go install github.com/destyk/commitkit@latest
-
-# or build and install
-make setup
-
 git log -1 --format=%B | commitkit check
-commitkit check --file .git/COMMIT_EDITMSG
+commitkit check --file .git/COMMIT_EDITMSG --config path/to/.commitkit.yml
 commitkit parse
 commitkit install-hook
 commitkit uninstall-hook
