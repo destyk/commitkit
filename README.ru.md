@@ -1,64 +1,44 @@
 # commitkit
 
-Парсер и линтер commit-сообщений на чистом Go.
+**Маленький инструмент на Go, который проверяет, что сообщения Git-коммитов
+следуют правилам, которые задаёте вы.**
 
-commitkit разбирает сырое commit-сообщение в структурированную модель
+commitkit превращает сырое сообщение коммита в структурированную модель
 (type, scope, breaking-маркер, description, body, Git trailers) и проверяет
-его небольшим rule engine. **Conventional Commits реализован как политика**,
-а не зашит в парсер, поэтому тот же разбор остаётся полезным, если у проекта
-другая договорённость.
+её небольшим движком правил. **Conventional Commits — это политика**, а не
+жёстко вшитая логика парсера: тот же парсер остаётся полезным при другой
+конвенции.
 
-- Без тяжёлого фреймворка: доменное ядро в `internal/`, тонкие публичные
-  адаптеры (`commit`, `lint`, `policy`)
-- Позиции в исходнике у каждой части сообщения для точных диагностик
-- Корректная работа с Git trailers (continuation, multiline,
-  `BREAKING CHANGE` / `BREAKING-CHANGE`)
-- Конфиг проекта через `.commitkit.yml`
-- CLI для хуков и CI, плюс `install-hook` / `uninstall-hook`
+[English version](README.md) · [Contributing](CONTRIBUTING.ru.md)
 
-[English version](README.md)
+---
 
-## Архитектура
+## Какие проблемы закрывает
 
-Зависимости направлены внутрь: ядро не зависит от адаптеров.
+| Проблема                                         | Как помогает commitkit                                                     |
+| ------------------------------------------------ | -------------------------------------------------------------------------- |
+| Сообщения коммитов разъезжаются по команде       | Один конфиг (`.commitkit.yml`) или общая policy в коде                     |
+| Инструменты жёстко зашивают Conventional Commits | Парсер не привязан к конвенции; CC — политика по умолчанию                 |
+| Диагностика размытая                             | Позиции в исходнике на каждую часть сообщения                              |
+| Git trailers ведут себя непредсказуемо           | Continuations, multiline values, `BREAKING CHANGE`                         |
+| Для хуков и CI нужны разные тулы                 | Один CLI для локального `commit-msg` и пайплайнов                          |
+| Библиотека тащит тяжёлый фреймворк               | Тонкие публичные адаптеры (`commit`, `lint`, `policy`); ядро в `internal/` |
 
-| Слой        | Пакеты                                                                  | Роль                               |
-| ----------- | ----------------------------------------------------------------------- | ---------------------------------- |
-| Ядро        | `internal/commit`, `internal/lint`, `internal/policy`, `internal/lexer` | Доменная логика                    |
-| Приложение  | `cli`, `internal/config`, `internal/hook`                               | CLI, конфиг, хуки                  |
-| Адаптеры    | `commit`, `lint`, `policy`                                              | Публичный API для внешних импортов |
-| Точка входа | `main.go`                                                               | Только `main`                      |
+---
 
-- **Ядро никогда не импортирует** публичные пакеты или `cli`.
-- **Публичные пакеты** — тонкие реэкспорты (type aliases и прокси-функции).
-- **`cli` живёт вне `internal`** — это прикладной адаптер, а не библиотечное ядро.
+## Быстрый старт
 
-## Возможности
-
-- Публичные доменные адаптеры и внутреннее ядро
-- Лексер и парсер с позициями в исходнике (spans)
-- Поддержка Git trailers (continuation, multiline, BREAKING CHANGE)
-- Компонуемые правила и rule engine
-- Конфигурация `.commitkit.yml` (`gopkg.in/yaml.v3`)
-- Установщик git-хука `commit-msg`
-- Удобно для хуков и CI
-
-## Установка
-
-### CLI (глобально)
+### Установка
 
 ```bash
+# Установка
+# Убедитесь, что `$(go env GOPATH)/bin` есть в `PATH`.
 go install github.com/destyk/commitkit@latest
-```
 
-Убедитесь, что `$(go env GOPATH)/bin` есть в `PATH`.
-
-Из локального клона:
-
-```bash
+# или клонируйте репозиторий
 git clone https://github.com/destyk/commitkit.git
 cd commitkit
-make setup
+make build
 ```
 
 ### Готовые бинарники
@@ -73,32 +53,54 @@ make setup
 commitkit version
 ```
 
-### Библиотека
-
-В своём модуле:
+### Использование
 
 ```bash
-go get github.com/destyk/commitkit@latest
+# Опциональный конфиг проекта (поиск вверх от cwd). Нет файла -> defaults CC.
+cat > .commitkit.yml <<'YAML'
+types: [feat, fix, docs, chore]
+description:
+  min: 1
+  max: 72
+  lowercase: true
+scope:
+  required: false
+YAML
+
+# Проверить последний коммит
+git log -1 --format=%B | commitkit check
+
+# Или файл (например в хуке)
+commitkit check --file .git/COMMIT_EDITMSG
+
+# Установить git commit-msg hook
+commitkit install-hook
 ```
 
-Импортируйте только публичные доменные пакеты:
+---
 
-```go
-import (
-    "github.com/destyk/commitkit/commit"
-    "github.com/destyk/commitkit/lint"
-    "github.com/destyk/commitkit/policy"
-)
+## Основные команды
+
+```bash
+commitkit check [--file FILE] [--config FILE]
+commitkit parse [--file FILE]
+commitkit install-hook [--force] [--path DIR]
+commitkit uninstall-hook [--force] [--path DIR]
+commitkit version
 ```
 
-Не импортируйте `internal/...` — эти пакеты не входят в публичный API
-и недоступны для импорта извне этого модуля.
+| Код | Значение                     |
+| --- | ---------------------------- |
+| 0   | Успех                        |
+| 1   | Ошибка parse / policy / hook |
+| 2   | Usage / I/O / config         |
 
-## CLI
+---
 
-### Конфигурация
+## Конфигурация
 
-`.commitkit.yml` (поиск вверх от текущего каталога):
+`.commitkit.yml` ищется вверх от текущей директории. Явный путь — через
+`--config`.
 
 ```yaml
 types:
@@ -124,131 +126,27 @@ rules:
   breaking_change_footer: true
 ```
 
-Если файла нет — встроенные значения Conventional Commits.
+Отсутствующие поля берутся из defaults Conventional Commits.
 
-```bash
-git log -1 --format=%B | commitkit check
-commitkit check --file .git/COMMIT_EDITMSG --config path/to/.commitkit.yml
-commitkit parse
-commitkit install-hook
-commitkit uninstall-hook
-```
+---
 
-| Код | Значение                         |
-| --- | -------------------------------- |
-| 0   | Успех                            |
-| 1   | Ошибка разбора / политики / хука |
-| 2   | Ошибка usage / I/O / конфига     |
+## Почему так устроено
 
-## Использование как библиотеки
+- **Policy, а не hard-code** — правила можно менять и собирать, не переписывая парсер.
+- **Точная диагностика** — позиции на type, scope, description, trailers.
+- **CLI vs библиотека** — вывод в консоль в CLI, domain-пакеты возвращают структуры.
+- **Маленькая поверхность** — импортируйте только `commit`, `lint`, `policy`.
 
-```go
-import (
-    "github.com/destyk/commitkit/commit"
-    "github.com/destyk/commitkit/lint"
-    "github.com/destyk/commitkit/policy"
-)
+---
 
-message, err := commit.Parse("feat(api): add pagination")
-if err != nil {
-    panic(err)
-}
+## Участие в разработке / внутренности
 
-result := lint.Check(message, policy.ConventionalCommits())
-if !result.Valid() {
-    for _, v := range result.Violations {
-        fmt.Printf("%s: %s: %s\n", v.Position(), v.Rule, v.Message)
-    }
-}
-```
+Архитектура, публичные адаптеры, как добавить правило и примеры library API —
+в **[CONTRIBUTING.ru.md](CONTRIBUTING.ru.md)**.
 
-## Кастомная политика
+Начните оттуда, если хотите расширять commitkit или встраивать его в свои инструменты.
 
-Можно собирать правила из встроенных или писать свои.
-
-### Из встроенных правил
-
-```go
-rules := policy.Custom(
-    policy.TypeEnum("feat", "fix", "chore"),
-    policy.DescriptionLength(1, 72),
-    policy.DescriptionLowercase(),
-    policy.RequireScope(),
-    policy.ScopeEnum("api", "ui", "db"),
-    policy.NoTrailingPeriod(),
-    policy.HeaderMaxLength(100),
-    policy.BreakingChangeFooter(),
-)
-
-result := lint.Check(message, rules)
-```
-
-### Своё правило
-
-Достаточно реализовать интерфейс `lint.Rule`:
-
-```go
-package main
-
-import (
-    "strings"
-
-    "github.com/destyk/commitkit/commit"
-    "github.com/destyk/commitkit/lint"
-    "github.com/destyk/commitkit/policy"
-)
-
-// ticketRefRule требует footer вида "Refs: PROJ-123".
-type ticketRefRule struct{}
-
-func (ticketRefRule) Name() string { return "ticket-ref" }
-
-func (ticketRefRule) Check(message commit.Message) []lint.Violation {
-    for _, footer := range message.Footers {
-        if strings.EqualFold(footer.Token, "Refs") && footer.Value != "" {
-            return nil
-        }
-    }
-    return []lint.Violation{{
-        Rule:     "ticket-ref",
-        Message:  "commit must include a Refs footer (e.g. Refs: PROJ-123)",
-        Severity: lint.SeverityError,
-    }}
-}
-
-func main() {
-    message, err := commit.Parse(`feat(api): add pagination
-
-Refs: API-42`)
-    if err != nil {
-        panic(err)
-    }
-
-    rules := policy.Custom(
-        policy.TypeEnum("feat", "fix"),
-        policy.RequireScope(),
-        ticketRefRule{},
-    )
-
-    result := lint.Check(message, rules)
-    if !result.Valid() {
-        for _, v := range result.Violations {
-            println(v.Rule + ": " + v.Message)
-        }
-    }
-}
-```
-
-Через конфиг обычно хватает ограничений проекта (types, scope enum, длины). Правила в коде нужны для проверок, которые плохо выражаются в YAML.
-
-## Разработка
-
-```bash
-make test
-make lint
-gofmt -w .
-make build
-```
+---
 
 ## Лицензия
 
